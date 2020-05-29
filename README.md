@@ -1,2 +1,2 @@
-# Azure-WCF-Server-
+# Azure-WCF-Server
 Simple exercise service
