@@ -14,14 +14,19 @@ namespace WCFServiceWebRole1
     // UWAGA: aby uruchomić klienta testowego WCF w celu przetestowania tej usługi, wybierz plik Service1.svc lub Service1.svc.cs w eksploratorze rozwiązań i rozpocznij debugowanie.
     public class Service1 : IService1
     {
+        private static CloudTable GetTableReference(string tableName)
+        {
+            var account = CloudStorageAccount.DevelopmentStorageAccount;
+            CloudTableClient client = account.CreateCloudTableClient();
+            var table = client.GetTableReference(tableName);
+            table.CreateIfNotExists();
+            return table;
+        }
+
         public bool Create(string login, string password)
         {
 
-            var account = CloudStorageAccount.DevelopmentStorageAccount;
-            CloudTableClient client = account.CreateCloudTableClient();
-            var table = client.GetTableReference("users");
-            table.CreateIfNotExists(); // utworzenie tabeli jeżeli nie istnieje
-            //table.DeleteIfExists(); // usunięcie tabeli gdy istnieje
+            var table = GetTableReference("users");
 
             var operationDoesTableExists = TableOperation.Retrieve<User>(login, password);
             var existsResult = table.Execute(operationDoesTableExists);
@@ -46,6 +51,50 @@ namespace WCFServiceWebRole1
             {
                 return false;
             }
+
+            return true;
+        }
+
+        public Guid Login(string login, string password)
+        {
+            var table = GetTableReference("users");
+
+            var operationDoesTableExists = TableOperation.Retrieve<User>(login, password);
+            var existsResult = table.Execute(operationDoesTableExists);
+
+            if (!(existsResult.Result is User user))
+            {
+                return Guid.Empty;
+            }
+
+            var guid = Guid.NewGuid();
+            user.SessionId = guid;
+
+            var operationUpdate = TableOperation.Replace(user);
+            table.Execute(operationUpdate);
+
+            return guid;
+        }
+
+        public bool Logout(string login)
+        {
+            var table = GetTableReference("users");
+
+            TableQuery<User> query =
+                new TableQuery<User>()
+                    .Where(TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.Equal, login));
+            var resultQuery = table.ExecuteQuery(query);
+            var user = resultQuery.SingleOrDefault();
+
+            if (user == null)
+            {
+                return false;
+            }
+
+            user.SessionId = Guid.Empty;
+
+            var updateOperation = TableOperation.Replace(user);
+            table.Execute(updateOperation);
 
             return true;
         }

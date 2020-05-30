@@ -17,6 +17,12 @@ namespace WCFServiceWebRole1
         bool Create(string login, string password);
 
         [OperationContract]
+        Guid Login(string login, string password);
+
+        [OperationContract]
+        bool Logout(string login);
+
+        [OperationContract]
         string GetData(int value);
 
         [OperationContract]
