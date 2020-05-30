@@ -23,6 +23,12 @@ namespace WCFServiceWebRole1
         bool Logout(string login);
 
         [OperationContract]
+        bool Put(string name, string content, Guid sessionId);
+
+        [OperationContract]
+        string Get(string name, Guid sessionId);
+
+        [OperationContract]
         string GetData(int value);
 
         [OperationContract]

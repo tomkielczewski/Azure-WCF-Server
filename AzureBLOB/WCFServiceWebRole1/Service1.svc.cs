@@ -1,4 +1,5 @@
 ﻿using Microsoft.WindowsAzure.Storage;
+using Microsoft.WindowsAzure.Storage.Blob;
 using Microsoft.WindowsAzure.Storage.Table;
 using System;
 using System.Collections.Generic;
@@ -21,6 +22,16 @@ namespace WCFServiceWebRole1
             var table = client.GetTableReference(tableName);
             table.CreateIfNotExists();
             return table;
+        }
+
+        private static CloudBlobContainer GetBlobContainer(string containerName)
+        {
+            var account = CloudStorageAccount.DevelopmentStorageAccount;
+            CloudBlobClient client = account.CreateCloudBlobClient();
+            CloudBlobContainer container = client.GetContainerReference(containerName);
+            container.CreateIfNotExists();
+
+            return container;
         }
 
         public bool Create(string login, string password)
@@ -97,6 +108,56 @@ namespace WCFServiceWebRole1
             table.Execute(updateOperation);
 
             return true;
+        }
+
+        public bool Put(string name, string content, Guid sessionId)
+        {
+            var table = GetTableReference("users");
+            var container = GetBlobContainer("container");
+
+            TableQuery<User> query = new TableQuery<User>()
+               .Where(TableQuery.GenerateFilterConditionForGuid("SessionId", QueryComparisons.Equal, sessionId));
+            var result = table.ExecuteQuery(query);
+            var user = result.SingleOrDefault();
+
+            if (user == null)
+            {
+                return false;
+            }
+
+            var blob = container.GetBlockBlobReference(name);
+            var bytes = new System.Text.ASCIIEncoding().GetBytes(content);
+            var s = new System.IO.MemoryStream(bytes);
+            blob.UploadFromStream(s);
+            return true;
+        }
+
+        public string Get(string name, Guid sessionId)
+        {
+            var table = GetTableReference("users");
+            var container = GetBlobContainer("container");
+
+            TableQuery<User> query = new TableQuery<User>()
+                .Where(TableQuery.GenerateFilterConditionForGuid("SessionId", QueryComparisons.Equal, sessionId));
+            var result = table.ExecuteQuery(query);
+            var user = result.SingleOrDefault();
+
+            if (user == null)
+            {
+                return "Niepoprawne ID sesji.";
+            }
+
+            
+            var blob = container.GetBlockBlobReference(name);
+            if (blob == null)
+            {
+                return "Nie ma pliku o takiej nazwie.";
+            }
+
+            var s = new System.IO.MemoryStream();
+            blob.DownloadToStream(s);
+            string content = System.Text.Encoding.UTF8.GetString(s.ToArray());
+            return content;
         }
 
         public string GetData(int value)
